@@ -2,3 +2,4 @@ screeninfo
 opencv-python
 numpy
 PILasOPENCV
+scipy
