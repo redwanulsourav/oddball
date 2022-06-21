@@ -1,0 +1,4 @@
+screeninfo
+opencv-python
+numpy
+PILasOPENCV
