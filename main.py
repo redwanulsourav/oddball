@@ -8,6 +8,10 @@ import PILasOPENCV as ImageDraw
 import PILasOPENCV as ImageFont
 import datetime
 from scipy.stats import truncnorm
+import pandas as pd
+import statistics
+import os
+import pprint 
 
 screenWidth = None
 screenHeight = None
@@ -16,6 +20,17 @@ numberBoxHeight = None
 boundingBoxes = None
 testNumbers = None
 
+dataset = None
+
+"""
+    Dataset format: 
+        {
+            "highoutLow": [
+                nums: []
+                interquartile range
+            ]
+        }
+"""
 def writeFile(num):
     print("called 2")
     now = datetime.datetime.now()
@@ -68,58 +83,6 @@ def init():
     numberBoxWidth = 180
     numberBoxHeight = 60
 
-def getNumbers():
-    digitCount = random.randint(1, 3)
-    if digitCount == 1:
-        low = 0
-        high = 9
-    elif digitCount == 2:
-        low = 10
-        high = 99
-    else:
-        low = 100
-        high = 999
-
-    
-    mu, sigma = 0.5, 1
-    lower, upper = mu - 0.1*sigma, mu + 0.1*sigma
-
-    sizeList = [3, 5, 7]
-    size = sizeList[random.randint(1,3)-1]
-
-    samples = truncnorm.rvs(
-          (lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=size)
-    
-    lower, upper = -10000000, mu  -2.698*sigma
-    outlier1 = truncnorm.rvs(
-          (lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=1)
-
-    lower, upper = mu  + 2.698*sigma, 10000000
-    outlier2 = truncnorm.rvs(
-          (lower-mu)/sigma,(upper-mu)/sigma,loc=mu,scale=sigma,size=1)
-    
-    outlier = None
-    if random.randint(1, 2) == 1:
-        outlier = outlier1
-    else:
-        outlier = outlier2
-
-    outlier = outlier * (high-low) + low
-    outlier = int(np.ceil(outlier).item())
-
-    samples = (samples * (high-low)) + low
-    
-    print(type(samples))   
-    
-    
-    samples = np.ceil(samples)
-    samples = samples.astype(np.uint16)
-
-    samples = list(samples)
-    samples.append(outlier)
-    return samples
-
-
 def drawNumbers():
     global screenWidth
     global screenHeight
@@ -164,7 +127,7 @@ def drawNumbers():
     pilImage.setim(img)
 
     draw = ImageDraw.Draw(pilImage)
-    print(boundingBoxes)
+    # print(boundingBoxes)
     
     for key,value in boundingBoxes.items():
         text = str(key)
@@ -180,6 +143,60 @@ def drawNumbers():
 def main():
     drawNumbers()
 
+def format_data(single_column):
+    # print(single_column)
+    set_nums = single_column.iloc[2:36].iloc[0:8].to_list()
+    
+    set_nums = [int(x) for x in set_nums]
+    high_outlier = int(single_column.iloc[2:36].iloc[-1])
+    low_outlier = int(single_column.iloc[2:36].iloc[-6])
+
+    iqr = float(single_column.iloc[2:36].iloc[-14])
+    
+    mean_wo_outlier = statistics.mean(set_nums)
+    std_wo_outlier = statistics.stdev(set_nums)
+
+    mean_w_outlier = statistics.mean(set_nums + [high_outlier, low_outlier])
+    std_w_outlier = statistics.stdev(set_nums + [high_outlier, low_outlier])
+
+
+    data_dict = {
+        "set_nums" : set_nums,
+        "mean_wo_outlier" : mean_wo_outlier,
+        "mean_w_outlier" : mean_w_outlier,
+        "std_wo_outlier" : std_wo_outlier,
+        "std_w_outlier": std_w_outlier,
+        "iqr" : iqr,
+        "high_outlier" : high_outlier,
+        "low_outlier" : low_outlier
+    }
+
+    return data_dict
+
+def load_dataset():
+    global dataset
+    dataset = {}
+
+    filenames = os.listdir('dataset/')
+    
+    for data_file in filenames:
+        df = pd.read_csv(f'dataset/{data_file}')
+        dataset[data_file] = []
+        print(data_file)    
+        for column in range(1, 100, 4):
+            print(column)
+            try:
+                single_set = df.iloc[:, column]
+            except:
+                break
+            try:
+                dataset[data_file].append(format_data(single_set))
+            except:
+                break
+
 if __name__ == '__main__':
-    init()
-    main()
+    #init()
+    #main()
+
+    load_dataset()
+    # pprint.pprint(dataset)
